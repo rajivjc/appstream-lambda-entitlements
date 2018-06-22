@@ -57,7 +57,7 @@ exports.handler = (event, context, callback) => {
                       FleetName: 'AppStreamDemo',
                       StackName: 'AppStreamDemo',
                       UserId: username,
-                      Validity: 60
+                      Validity: 45
                     };
 
                     // create streaming url with app stream params
