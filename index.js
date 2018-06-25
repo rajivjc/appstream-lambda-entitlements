@@ -5,9 +5,64 @@ const AWS = require('aws-sdk');
 const docClient = new AWS.DynamoDB.DocumentClient({region: 'us-east-1'});
 const appstream = new AWS.AppStream({region: 'us-east-1'});
 var crypto = require('crypto');
-var algorithm = 'aes-256-ctr';
-var cryptopassword = 'LYKISYPEIblVuF7HBzeSfXn7SrxoemmbsTR9HRucrFUQzbEMPvLtnt6cmcWaYPiNY4hznNpn4qGx1dlYonWjsL9QVqoqVvYLUgur';
+//var password = require('./password');
+//var algorithm = 'aes-256-ctr';
+//var cryptopassword = 'LYKISYPEIblVuF7HBzeSfXn7SrxoemmbsTR9HRucrFUQzbEMPvLtnt6cmcWaYPiNY4hznNpn4qGx1dlYonWjsL9QVqoqVvYLUgur';
 
+var digest = 'sha256';
+var iterations = 99999;
+var keyLength = 32;
+
+var hash = function(password) {
+    var executor = function(resolve, reject) {
+      var callback = function(error, salt) {
+        if (error) {
+          return reject(error);
+        }
+  
+        var callback = function(error, key) {
+          if (error) {
+            return reject(error);
+          }
+  
+          var buffer = new Buffer(keyLength * 2);
+  
+          salt.copy(buffer);
+          key.copy(buffer, salt.length);
+  
+          resolve(buffer.toString('base64'));
+        };
+  
+        crypto.pbkdf2(password, salt, iterations, keyLength, digest, callback);
+      };
+  
+      crypto.randomBytes(keyLength, callback);
+    };
+  
+    return new Promise(executor);
+  };
+  
+var same = function(password, hash) {
+    var executor = function(resolve, reject) {
+      var buffer = new Buffer(hash, 'base64');
+      var salt = buffer.slice(0, keyLength);
+      var keyA = buffer.slice(keyLength, keyLength * 2);
+  
+      var callback = function(error, keyB) {
+        if (error) {
+          return reject(error);
+        }
+  
+        resolve(keyA.compare(keyB) == 0);
+      };
+  
+      crypto.pbkdf2(password, salt, iterations, keyLength, digest, callback);
+    };
+  
+    return new Promise(executor);
+  };
+
+/*
 function encrypt(text){
   var cipher = crypto.createCipher(algorithm,cryptopassword);
   var crypted = cipher.update(text,'utf8','hex');
@@ -21,6 +76,7 @@ function decrypt(text){
   dec += decipher.final('utf8');
   return dec;
 }
+*/
 
 exports.handler = (event, context, callback) => {
     let username=event.username.toLowerCase();
@@ -47,9 +103,10 @@ exports.handler = (event, context, callback) => {
             // if > 0, username found
             if(parseInt(RecsReturn) > 0) {
                 // check if password is valid
-                let dbpassword = decrypt(data.Items[0].password);
+                //let dbpassword = decrypt(data.Items[0].password);
 
-                if(password === dbpassword) {
+                //if(password === dbpassword) {
+                if(same(password,data.Items[0].password)){
                     // successful authentication
                     console.log('Login successful for ' + username + ', requesting an AppStream session...');
 
